@@ -1,0 +1,8 @@
+## "" this file contains the requirements for the project. Use pip to install the packages listed below.""
+
+streamlit
+scikit-learn
+numpy
+pandas
+matplotlib
+seaborn

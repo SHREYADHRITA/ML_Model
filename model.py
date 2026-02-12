@@ -1,154 +1,99 @@
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.tree import DecisionTreeClassifier
-from xgboost import XGBClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 
-class train_model():
-    """ This class implements a function to train a model on the given dataset """
-    def __init__(self, dataset_path, target_column):
-        self.dataset = pd.read_csv(dataset_path)
-        self.target = target_column
+try:
+    from xgboost import XGBClassifier
+    _has_xgb = True
+except Exception:
+    _has_xgb = False
 
+class BaseModel:
+    def fit(self, X, y):
+        raise NotImplementedError
 
-    def feature_engineering(self):
-        """ This class is specific to the dataset we have chosen.
-        This class will implement the basic feature engineering to
-        modify the dataset for model calculation """
+    def predict(self, X):
+        return self._clf.predict(X)
 
-        encoder = LabelEncoder()
-        for col in self.dataset.columns:
-            self.dataset[col] = encoder.fit_transform(self.dataset[col])
+    def predict_proba(self, X):
+        if hasattr(self._clf, "predict_proba"):
+            return self._clf.predict_proba(X)
+        raise AttributeError("Underlying classifier does not support predict_proba")
 
-        X = self.dataset.drop(["class"], axis=1)
-        Y = self.dataset["class"]
+    @property
+    def name(self):
+        return self.__class__.__name__
 
-        return X, Y
+class LogisticRegressionModel(BaseModel):
+    def __init__(self, C=1.0, max_iter=200, random_state=42):
+        self.C = C
+        self.max_iter = max_iter
+        self.random_state = random_state
+        self._clf = Pipeline([
+        ("scaler", StandardScaler()),
+        ("lr", LogisticRegression(C=self.C, max_iter=self.max_iter, random_state=self.random_state))
+        ])
 
-    def logistic_regression(self, X, y, test_size=0.2, random_state=42, **kwargs):
-        """ This method implements a simple linear regression model """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
+    def fit(self, X, y):
+        self._clf.fit(X, y)
+        return self
 
-        model = LogisticRegression()
-        model.fit(X_train, y_train)
+class DecisionTreeModel(BaseModel):
+    def __init__(self, max_depth=None, random_state=42):
+        self.max_depth = max_depth
+        self.random_state = random_state
+        self._clf = DecisionTreeClassifier(max_depth=self.max_depth, random_state=self.random_state)
 
-        y_pred = model.predict(X_test)
+    def fit(self, X, y):
+        self._clf.fit(X, y)
+        return self
 
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "classification_report": classification_report(y_test, y_pred)
-        }
+class KNNModel(BaseModel):
+    def __init__(self, n_neighbors=5):
+        self.n_neighbors = n_neighbors
+        self._clf = Pipeline([
+        ("scaler", StandardScaler()),
+        ("knn", KNeighborsClassifier(n_neighbors=self.n_neighbors))])
 
-        return model, metrics
+    def fit(self, X, y):
+        self._clf.fit(X, y)
+        return self
 
-    def decision_tree_classifier(self, X, y, test_size=0.2, random_state=42, **kwargs):
-        """ This method implements a decision tree classifier """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
+class NaiveBayesModel(BaseModel):
+    def __init__(self):
+        self._clf = GaussianNB()
 
-        model = DecisionTreeClassifier(random_state=random_state, **kwargs)
-        model.fit(X_train, y_train)
+    def fit(self, X, y):
+        self._clf.fit(X, y)
+        return self
 
-        y_pred = model.predict(X_test)
+class RandomForestModel(BaseModel):
+    def __init__(self, n_estimators=100, max_depth=None, random_state=42):
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.random_state = random_state
+        self._clf = RandomForestClassifier(n_estimators=self.n_estimators, max_depth=self.max_depth, random_state=self.random_state)
 
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "classification_report": classification_report(y_test, y_pred)
-        }
+    def fit(self, X, y):
+        self._clf.fit(X, y)
+        return self
 
-        return model, metrics
+class XGBoostModel(BaseModel):
+    def __init__(self, n_estimators=100, learning_rate=0.1, random_state=42, use_label_encoder=False):
+        if not _has_xgb:
+            raise ImportError("xgboost is not installed. Install with `pip install xgboost` to use this class.")
+        self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.random_state = random_state
+        # disable label encoder warning in newer xgboost
+        self._clf = XGBClassifier(n_estimators=self.n_estimators, learning_rate=self.learning_rate, random_state=self.random_state, use_label_encoder=False, eval_metric='logloss')
 
-    def k_nearest_neighbor_classifier(self, X, y, test_size=0.2, random_state=42, **kwargs):
-        """ This method implements a k-nearest neighbor classifier """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
+    def fit(self, X, y):
+        self._clf.fit(X, y)
+        return self
 
-        model = KNeighborsClassifier(**kwargs)
-        model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "classification_report": classification_report(y_test, y_pred)
-        }
-
-        return model, metrics
-
-    def naive_bayes_classifier(self, X, y, test_size=0.2, random_state=42, **kwargs):
-        """ This method implements a naive bayes classifier """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
-
-        model = GaussianNB(**kwargs)
-        model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "classification_report": classification_report(y_test, y_pred)
-        }
-
-        return model, metrics
-
-    def random_forest(self, X, y, test_size=0.2, random_state=42, **kwargs):
-        """ This method implements a random forest model """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
-
-        model = RandomForestClassifier(random_state=random_state, **kwargs)
-        model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "classification_report": classification_report(y_test, y_pred)
-        }
-
-        return model, metrics
-
-    def xgboost_model(self, X, y, test_size=0.2, random_state=42, **kwargs):
-        """ This method implements an XGBoost model """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
-
-        model = XGBClassifier(
-            use_label_encoder=False,
-            eval_metric='logloss',
-            random_state=random_state,
-            **kwargs
-        )
-        model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "classification_report": classification_report(y_test, y_pred)
-        }
-
-        return model, metrics
-
-    def model_metrics(self):
-        """ This method computes various model metrics """

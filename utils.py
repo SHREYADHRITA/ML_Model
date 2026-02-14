@@ -1,7 +1,6 @@
 import pandas as pd
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, classification_report
-
-
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, classification_report, precision_score, \
+    recall_score, matthews_corrcoef
 
 
 def load_sample_data():
@@ -16,17 +15,23 @@ def load_sample_data():
         return None
 
 def evaluate_model(model, X_test, y_test):
+    """Evaluate a trained classification model using multiple metrics."""
     preds = model.predict(X_test)
+
     metrics = {
-    'accuracy': float(accuracy_score(y_test, preds)),
-    'f1_score': float(f1_score(y_test, preds, average='weighted')),
+        "Accuracy": round(float(accuracy_score(y_test, preds)),4),
+        "Precision": round(float(precision_score(y_test, preds, average="weighted", zero_division=0)), 4),
+        "Recall": round(float(recall_score(y_test, preds, average="weighted", zero_division=0)), 4),
+        "F1 Score": round(float(f1_score(y_test, preds, average="weighted")), 4),
+        "MCC Score": round(float(matthews_corrcoef(y_test, preds)), 4),
     }
-    # roc_auc only for binary
+
+    # Compute AUC Score (only for binary classification)
     try:
-        if len(set(y_test)) == 2:
+        if len(set(y_test)) == 2 and hasattr(model, "predict_proba"):
             probs = model.predict_proba(X_test)[:, 1]
-            metrics['roc_auc'] = float(roc_auc_score(y_test, probs))
+            metrics["AUC Score"] = round(roc_auc_score(y_test, probs), 4)
     except Exception:
-        pass
+        metrics["AUC Score"] = None
 
     return metrics

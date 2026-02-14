@@ -49,11 +49,8 @@ st.success("File uploaded successfully ✅")
 st.write("### Data Preview")
 st.dataframe(df.head())
 
-
 # Load uploaded data
 df = pd.read_csv(uploaded_file)
-st.write("### Data Preview")
-st.dataframe(df.head())
 
 # Encode categorical features
 categorical_cols = df.select_dtypes(include=['object', 'category']).columns
@@ -72,11 +69,12 @@ le = LabelEncoder()
 if y.dtype == 'object' or y.dtype.name == 'category':
     y = le.fit_transform(y)
 
-# Target column selection
-target_column = st.sidebar.selectbox("Select target column", df.columns, key="target_column_select")
 
-X = df.drop(columns=[target_column])
-y = df[target_column]
+# Ensure y is properly encoded for all models (especially XGBoost)
+from sklearn.preprocessing import LabelEncoder
+if y.dtype == "object" or y.dtype.name == "category" or y.min() != 0 or not set(y.unique()) == set(range(len(y.unique()))):
+    le = LabelEncoder()
+    y = pd.Series(le.fit_transform(y), name=target_column)
 
 
 # Split configuration
@@ -121,14 +119,14 @@ elif model_name == "KNN":
     n_neighbors = st.sidebar.slider("n_neighbors", 1, 50, 5)
     model = ModelClass(n_neighbors=int(n_neighbors))
 elif model_name == "Decision Tree":
-    max_depth = st.sidebar.slider("max_depth", 1, 50, value=5)
+    max_depth = st.sidebar.slider("max_depth", 1, 50, value=2)
     model = ModelClass(max_depth=int(max_depth))
 elif model_name == "Random Forest":
     n_estimators = st.sidebar.slider("n_estimators", 10, 1000, value=100)
     model = ModelClass(n_estimators=int(n_estimators))
 elif model_name == "XGBoost":
     n_estimators = st.sidebar.slider("n_estimators", 10, 1000, value=100)
-    learning_rate = st.sidebar.number_input("learning_rate", 0.001, 1.0, value=0.1)
+    learning_rate = st.sidebar.number_input("learning_rate", 0.001, 1.0, value=0.01)
     model = ModelClass(n_estimators=int(n_estimators), learning_rate=float(learning_rate))
 else:
     model = ModelClass()
@@ -148,9 +146,3 @@ if st.button("Train model"):
     if st.button("Save model"):
         joblib.dump(model, save_name)
     st.info(f"Saved to {save_name}")
-
-    # Predict sample
-    st.write("### Predictions on test sample")
-    preds = model.predict(X_test)
-    st.write(preds[:10])
-

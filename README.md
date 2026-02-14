@@ -19,7 +19,10 @@ at risk of developing diabetes. By analyzing relevant health data, the model ena
 early detection of potential diabetic conditions, allowing timely treatment. This proactive 
 approach can significantly improve health outcomes and reduce long-term complications.
 
+App link ---> https://kwe796uq6v8s7hnhja2obw.streamlit.app/
+
 Comparison Table with the evaluation metrics
 ----------------------------------------------------------------------------------
 ![img.png](img.png)
 
+![img_1.png](img_1.png)

@@ -8,11 +8,10 @@ import joblib
 
 st.set_page_config(page_title="Streamlit ML Demo", layout="wide")
 st.title("Streamlit ML — Train and Compare Models")
-
 st.sidebar.header("Upload Dataset")
 uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
 
-
+# Load sample data if no file uploaded
 if uploaded_file is None:
     st.warning("Please upload a CSV file to continue.")
     st.stop()
@@ -25,7 +24,6 @@ try:
         st.error("The uploaded file appears to be empty. Please upload a valid CSV file.")
         st.stop()
 
-    # Try different delimiters (comma, semicolon, tab)
     try:
         df = pd.read_csv(io.StringIO(content))
     except pd.errors.ParserError:
